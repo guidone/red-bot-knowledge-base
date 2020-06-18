@@ -1,0 +1,1699 @@
+[
+  {
+      "id": "ac239391.e21b4",
+      "type": "subflow",
+      "name": "Knowledge Base",
+      "info": "Show to the user some technical articles taken from a [knowledge base](/mc/knowledge-base). The search is keyword based.\n\nIt can work in `answer mode`, that means that every input from the user is searched against the articles list (this is useful for bots that don't handle different requests)\n\n\n**Version:** _1.0.0_\n\n**URL:** [GitHub](https://github.com/guidone/red-bot-knowledge-base) ",
+      "category": "RedBot Flows",
+      "in": [
+          {
+              "x": 40,
+              "y": 120,
+              "wires": [
+                  {
+                      "id": "56c9ec1e.b77074"
+                  }
+              ]
+          }
+      ],
+      "out": [
+          {
+              "x": 1715,
+              "y": 60,
+              "wires": [
+                  {
+                      "id": "2cc1f8b8.a7e298",
+                      "port": 0
+                  }
+              ]
+          },
+          {
+              "x": 1660,
+              "y": 140,
+              "wires": [
+                  {
+                      "id": "e9e237c0.954148",
+                      "port": 0
+                  }
+              ]
+          }
+      ],
+      "env": [],
+      "color": "#ff6633",
+      "icon": "node-red/db.svg"
+  },
+  {
+      "id": "a8644317.5d5ee",
+      "type": "inject",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "topic": "",
+      "payload": "",
+      "payloadType": "date",
+      "repeat": "",
+      "crontab": "",
+      "once": true,
+      "onceDelay": 0.1,
+      "x": 330,
+      "y": 540,
+      "wires": [
+          [
+              "b514063.b6562f8",
+              "911cf965.db4f78"
+          ]
+      ]
+  },
+  {
+      "id": "b1560e12.71661",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "Index articles",
+      "func": "const minisearch = global.get('minisearch');\n\nconsole.log(`Indexing ${msg.payload.contents.length} articles`);\n\n\nconst minisearchFaq = new minisearch({\n  fields: ['title', 'body', 'category.name'],\n  storeFields: ['title', 'slug', 'category.name'],\n  extractField: (document, fieldName) => {\n    // Access nested fields\n    const value = fieldName.split('.').reduce((doc, key) => doc && doc[key], document)\n    // If field value is an array, join by space\n    return Array.isArray(value) ? value.join(' ') : value\n  }\n});\nminisearchFaq.addAll(msg.payload.contents);\n\n// store globally\nglobal.set('minisearchFaq', minisearchFaq);\n\nreturn msg;",
+      "outputs": 1,
+      "noerr": 0,
+      "x": 770,
+      "y": 540,
+      "wires": [
+          []
+      ]
+  },
+  {
+      "id": "e898d3e3.6c8bd",
+      "type": "mc-configuration",
+      "z": "ac239391.e21b4",
+      "namespace": "faq",
+      "debug": true,
+      "x": 360,
+      "y": 620,
+      "wires": [
+          []
+      ]
+  },
+  {
+      "id": "56c9ec1e.b77074",
+      "type": "chatbot-rules",
+      "z": "ac239391.e21b4",
+      "name": "If text message? Command?",
+      "rules": [
+          {
+              "type": "command",
+              "command": "/faq_all"
+          },
+          {
+              "type": "command",
+              "command": "/faq_open"
+          },
+          {
+              "type": "messageType",
+              "messageType": "message"
+          },
+          {
+              "type": "catchAll"
+          }
+      ],
+      "outputs": 4,
+      "x": 240,
+      "y": 120,
+      "wires": [
+          [
+              "5365b74c.6a1cf8"
+          ],
+          [
+              "b4c4e04b.a2c03"
+          ],
+          [
+              "b6f60088.6d79f"
+          ],
+          [
+              "26e11647.35c05a"
+          ]
+      ]
+  },
+  {
+      "id": "a42da235.55584",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "Search for a match",
+      "func": "const threshold = global.get('faq_threshold');\nconst minisearchFaq = global.get('minisearchFaq');\nconst chat = msg.chat();\n\nPromise.resolve(chat.set('faq_lastSeach', msg.payload.content))\n  .then(() => {\n    console.log(`Searching for: \"${msg.payload.content}\"`);\n\n    const result = minisearchFaq.search(msg.payload.content);\n\n    if (result.length !== 0) {\n      const valid = result.filter(item => item.score >= threshold);    \n      console.log(`Found ${result.length} of which ${valid.length} above the threshold (${threshold})`);\n  \n        if (valid.length === 0) {\n          console.log(`Nothing found, best match has score = ${result[0].score}:`);\n          console.log(result[0]);\n          node.send([null, msg]);\n        } else {\n          console.log(`Best match has score = ${valid[0].score}:`);\n          console.log(result[0]);\n          node.send([{ ...msg, previous: msg.payload, payload: { query: valid[0].id } }, null]);\n        }\n        return;\n    }\n\n    node.send([null, msg]);      \n  });\n\n",
+      "outputs": 2,
+      "noerr": 0,
+      "x": 430,
+      "y": 880,
+      "wires": [
+          [
+              "2ec8b42f.1327bc"
+          ],
+          [
+              "74cc7e9f.59be2"
+          ]
+      ]
+  },
+  {
+      "id": "b6f60088.6d79f",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "Default?",
+      "func": "const answerByDefault = global.get('faq_answerByDefault');\t\nconsole.log('Default?', answerByDefault)\nif (answerByDefault) {\n  return [null, msg];\n}\nreturn [msg, null];\n",
+      "outputs": 2,
+      "noerr": 0,
+      "x": 620,
+      "y": 220,
+      "wires": [
+          [
+              "139092e5.fca4bd"
+          ],
+          [
+              "c5cd4068.34c69"
+          ]
+      ]
+  },
+  {
+      "id": "2ec8b42f.1327bc",
+      "type": "mc-content",
+      "z": "ac239391.e21b4",
+      "language": "",
+      "failbackLanguage": "en",
+      "chain": false,
+      "x": 660,
+      "y": 880,
+      "wires": [
+          [
+              "113fc1e5.2d2ace"
+          ],
+          []
+      ]
+  },
+  {
+      "id": "113fc1e5.2d2ace",
+      "type": "template",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "field": "payload",
+      "fieldType": "msg",
+      "format": "handlebars",
+      "syntax": "mustache",
+      "template": "{{#payload}}\n*{{{title}}}*\n{{#category}}\nCategory: _{{{name}}}_\n{{/category}}\n{{{body}}}\n{{/payload}}",
+      "output": "str",
+      "x": 850,
+      "y": 880,
+      "wires": [
+          [
+              "3156d21e.12197e"
+          ]
+      ]
+  },
+  {
+      "id": "3156d21e.12197e",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Show article",
+      "message": [],
+      "language": "",
+      "x": 1040,
+      "y": 880,
+      "wires": [
+          [
+              "31d1aacf.919c86"
+          ]
+      ]
+  },
+  {
+      "id": "31d1aacf.919c86",
+      "type": "chatbot-params",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "params": [
+          {
+              "platform": "telegram",
+              "name": "parseMode",
+              "value": "Markdown"
+          },
+          {
+              "platform": "all",
+              "name": "messageFlag",
+              "value": "answer"
+          }
+      ],
+      "outputs": 1,
+      "x": 1210,
+      "y": 880,
+      "wires": [
+          [
+              "6ca26104.8391b",
+              "54cfd9d1.ee2a28"
+          ]
+      ]
+  },
+  {
+      "id": "3379cd74.877462",
+      "type": "mc-input",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "topic": "faq.refresh",
+      "x": 360,
+      "y": 460,
+      "wires": [
+          [
+              "911cf965.db4f78"
+          ]
+      ]
+  },
+  {
+      "id": "b4d44a79.fc5968",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Refresh index from MC",
+      "info": "",
+      "x": 360,
+      "y": 420,
+      "wires": []
+  },
+  {
+      "id": "83ec9008.febd6",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Index at startup",
+      "info": "",
+      "x": 340,
+      "y": 500,
+      "wires": []
+  },
+  {
+      "id": "75dce286.5269ac",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "c5cd4068.34c69",
+          "85413dc4.b682d"
+      ],
+      "x": 280,
+      "y": 880,
+      "wires": [
+          [
+              "a42da235.55584"
+          ]
+      ]
+  },
+  {
+      "id": "c5cd4068.34c69",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "75dce286.5269ac"
+      ],
+      "x": 755,
+      "y": 280,
+      "wires": []
+  },
+  {
+      "id": "fffcce9f.da6bb",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Do the search",
+      "info": "",
+      "x": 330,
+      "y": 840,
+      "wires": []
+  },
+  {
+      "id": "b514063.b6562f8",
+      "type": "chatbot-nlpjs-intent",
+      "z": "ac239391.e21b4",
+      "intent": "faq.needHelp",
+      "language": "en",
+      "utterances": [
+          "i need help",
+          "i need assistance",
+          "i need help with your product",
+          "i need help with you services",
+          "i need assistance with the product",
+          "i need assistance with your product",
+          "i am not able to use your service",
+          "i am not able to use your product",
+          "the service is down",
+          "your service is down",
+          "how can i use your service?",
+          "how can i use your product?",
+          "are there any instructions",
+          "are there any instructions for your product",
+          "are there any instructions for your service",
+          "can you help me with your product?",
+          "can you help me with your service?",
+          "can you help me?",
+          "i need your help",
+          "i need assistance",
+          "i need your assistance"
+      ],
+      "outputs": 1,
+      "x": 630,
+      "y": 600,
+      "wires": [
+          [
+              "e5f0d132.6b1c9"
+          ]
+      ]
+  },
+  {
+      "id": "7c7ad112.31d0a",
+      "type": "chatbot-nlpjs-train",
+      "z": "ac239391.e21b4",
+      "name": "faq",
+      "debug": true,
+      "x": 900,
+      "y": 660,
+      "wires": [
+          []
+      ]
+  },
+  {
+      "id": "2cc1f8b8.a7e298",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "Output",
+      "links": [
+          "6ca26104.8391b",
+          "1fc7ac7d.ee6064",
+          "aa843fae.15935",
+          "ea62557c.fb0428",
+          "d6370f1a.2da75",
+          "ba1d8fec.39623",
+          "b300c604.8245f8",
+          "b9479cc3.82799",
+          "881bb990.b49208",
+          "678c98e7.5c15f8",
+          "5c581e68.576cd"
+      ],
+      "x": 1595,
+      "y": 60,
+      "wires": [
+          []
+      ]
+  },
+  {
+      "id": "c19bf522.804da8",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Output",
+      "info": "",
+      "x": 1630,
+      "y": 20,
+      "wires": []
+  },
+  {
+      "id": "6ca26104.8391b",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 1335,
+      "y": 840,
+      "wires": []
+  },
+  {
+      "id": "4de2c9c2.6833f8",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Sorry nothing found",
+      "message": [
+          {
+              "message": "{{tx.faq.sorryNotFound1}}"
+          },
+          {
+              "message": "{{tx.faq.sorryNotFound2}}"
+          },
+          {
+              "message": "{{tx.faq.sorryNotFound3}}"
+          }
+      ],
+      "language": "",
+      "x": 880,
+      "y": 940,
+      "wires": [
+          [
+              "49230c36.c35e24"
+          ]
+      ]
+  },
+  {
+      "id": "1fc7ac7d.ee6064",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 1195,
+      "y": 940,
+      "wires": []
+  },
+  {
+      "id": "49230c36.c35e24",
+      "type": "chatbot-params",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "params": [
+          {
+              "platform": "all",
+              "name": "messageFlag",
+              "value": "not_understood"
+          }
+      ],
+      "outputs": 1,
+      "x": 1080,
+      "y": 940,
+      "wires": [
+          [
+              "1fc7ac7d.ee6064"
+          ]
+      ]
+  },
+  {
+      "id": "139092e5.fca4bd",
+      "type": "chatbot-nlpjs",
+      "z": "ac239391.e21b4",
+      "name": "faq",
+      "debug": true,
+      "scoreThreshold": "{{global.faq_nlpThreshold}}",
+      "x": 790,
+      "y": 220,
+      "wires": [
+          [
+              "ec2d73e0.9dc42"
+          ]
+      ]
+  },
+  {
+      "id": "74cc7e9f.59be2",
+      "type": "chatbot-rules",
+      "z": "ac239391.e21b4",
+      "name": "Detect status",
+      "rules": [
+          {
+              "type": "isTopic",
+              "topic": "faq.needHelp"
+          },
+          {
+              "type": "catchAll"
+          }
+      ],
+      "outputs": 2,
+      "x": 650,
+      "y": 980,
+      "wires": [
+          [
+              "4de2c9c2.6833f8"
+          ],
+          [
+              "a5aae5d8.e56148"
+          ]
+      ]
+  },
+  {
+      "id": "85413dc4.b682d",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "75dce286.5269ac"
+      ],
+      "x": 1315,
+      "y": 320,
+      "wires": []
+  },
+  {
+      "id": "f9995410.2f45f8",
+      "type": "chatbot-context",
+      "z": "ac239391.e21b4",
+      "command": "set",
+      "fieldValue": "faq.needHelp",
+      "fieldType": "str",
+      "fieldName": "topic",
+      "x": 1190,
+      "y": 240,
+      "wires": [
+          [
+              "d565e634.f7da88"
+          ]
+      ]
+  },
+  {
+      "id": "e5f0d132.6b1c9",
+      "type": "chatbot-nlpjs-intent",
+      "z": "ac239391.e21b4",
+      "intent": "faq.startOver",
+      "language": "en",
+      "utterances": [
+          "ok, thanks",
+          "ok i'm done",
+          "ok",
+          "thank you",
+          "start over",
+          "let's start from the beginning",
+          "done",
+          "start again",
+          "done with that"
+      ],
+      "outputs": 1,
+      "x": 630,
+      "y": 660,
+      "wires": [
+          [
+              "7c7ad112.31d0a"
+          ]
+      ]
+  },
+  {
+      "id": "ec2d73e0.9dc42",
+      "type": "chatbot-rules",
+      "z": "ac239391.e21b4",
+      "name": "Detect intent",
+      "rules": [
+          {
+              "type": "isIntentName",
+              "intent": "faq.startOver"
+          },
+          {
+              "type": "isTopic",
+              "topic": "faq.needHelp"
+          },
+          {
+              "type": "isIntentName",
+              "intent": "faq.needHelp"
+          },
+          {
+              "type": "catchAll"
+          }
+      ],
+      "outputs": 4,
+      "x": 950,
+      "y": 220,
+      "wires": [
+          [
+              "6d224b74.c05694"
+          ],
+          [
+              "c1f4fe91.b1881"
+          ],
+          [
+              "f9995410.2f45f8"
+          ],
+          [
+              "46036c6c.8fbdc4"
+          ]
+      ]
+  },
+  {
+      "id": "e9e237c0.954148",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "Pass Thru",
+      "links": [
+          "26e11647.35c05a",
+          "46036c6c.8fbdc4",
+          "a5aae5d8.e56148"
+      ],
+      "x": 1595,
+      "y": 140,
+      "wires": [
+          []
+      ]
+  },
+  {
+      "id": "26e11647.35c05a",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "e9e237c0.954148"
+      ],
+      "x": 475,
+      "y": 300,
+      "wires": []
+  },
+  {
+      "id": "d565e634.f7da88",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Ask something",
+      "message": [
+          {
+              "message": "{{tx.faq.askSomething1}}"
+          },
+          {
+              "message": "{{tx.faq.askSomething2}}"
+          },
+          {
+              "message": "{{tx.faq.askSomething3}}"
+          }
+      ],
+      "language": "",
+      "x": 1400,
+      "y": 240,
+      "wires": [
+          [
+              "a34724a1.e41318",
+              "a36565f8.a465a8",
+              "bedc94d0.9e75a8"
+          ]
+      ]
+  },
+  {
+      "id": "a34724a1.e41318",
+      "type": "chatbot-telegram-send",
+      "z": "ac239391.e21b4",
+      "bot": "b82d15f0.998c78",
+      "botProduction": "",
+      "track": true,
+      "passThrough": false,
+      "outputs": 1,
+      "x": 1610,
+      "y": 240,
+      "wires": [
+          [
+              "63d6f7a8.3d7f78"
+          ]
+      ]
+  },
+  {
+      "id": "63d6f7a8.3d7f78",
+      "type": "chatbot-rules",
+      "z": "ac239391.e21b4",
+      "name": "Is text?",
+      "rules": [
+          {
+              "type": "messageType",
+              "messageType": "message"
+          },
+          {
+              "type": "catchAll"
+          }
+      ],
+      "outputs": 2,
+      "x": 1800,
+      "y": 260,
+      "wires": [
+          [
+              "3d6801dc.f4ae6e"
+          ],
+          [
+              "410c0b9a.46a4e4"
+          ]
+      ]
+  },
+  {
+      "id": "b0a794d6.03aec8",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "Loop in",
+      "links": [
+          "3d6801dc.f4ae6e",
+          "6889073b.0b9cb8"
+      ],
+      "x": 475,
+      "y": 220,
+      "wires": [
+          [
+              "b6f60088.6d79f"
+          ]
+      ]
+  },
+  {
+      "id": "3d6801dc.f4ae6e",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "b0a794d6.03aec8"
+      ],
+      "x": 1935,
+      "y": 220,
+      "wires": []
+  },
+  {
+      "id": "410c0b9a.46a4e4",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Sorry, only text",
+      "message": [
+          {
+              "message": "Sorry, can only help with text messages"
+          }
+      ],
+      "language": "",
+      "x": 2000,
+      "y": 260,
+      "wires": [
+          [
+              "aa843fae.15935"
+          ]
+      ]
+  },
+  {
+      "id": "aa843fae.15935",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 2135,
+      "y": 260,
+      "wires": []
+  },
+  {
+      "id": "7db0a32c.f4153c",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Do nothing",
+      "info": "",
+      "x": 1640,
+      "y": 100,
+      "wires": []
+  },
+  {
+      "id": "6d224b74.c05694",
+      "type": "chatbot-context",
+      "z": "ac239391.e21b4",
+      "command": "delete",
+      "fieldValue": "faq.needHelp",
+      "fieldType": "str",
+      "fieldName": "topic",
+      "x": 1200,
+      "y": 200,
+      "wires": [
+          [
+              "26f0de86.36feb2"
+          ]
+      ]
+  },
+  {
+      "id": "ad79357c.2a31a8",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Ask if useful",
+      "info": "",
+      "x": 330,
+      "y": 1080,
+      "wires": []
+  },
+  {
+      "id": "369c93ee.587f2c",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "Was useful?",
+      "links": [
+          "c36a351f.3f0c78",
+          "5abf6185.c882"
+      ],
+      "x": 280,
+      "y": 1140,
+      "wires": [
+          [
+              "6304e7b4.cf66b8",
+              "b6bace8c.2a45"
+          ]
+      ]
+  },
+  {
+      "id": "7a77bbc3.aa2994",
+      "type": "delay",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "pauseType": "delay",
+      "timeout": "1",
+      "timeoutUnits": "seconds",
+      "rate": "1",
+      "nbRateUnits": "1",
+      "rateUnits": "second",
+      "randomFirst": "1",
+      "randomLast": "5",
+      "randomUnits": "seconds",
+      "drop": false,
+      "x": 1600,
+      "y": 940,
+      "wires": [
+          [
+              "c36a351f.3f0c78"
+          ]
+      ]
+  },
+  {
+      "id": "c36a351f.3f0c78",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "369c93ee.587f2c"
+      ],
+      "x": 1720,
+      "y": 940,
+      "wires": []
+  },
+  {
+      "id": "6304e7b4.cf66b8",
+      "type": "chatbot-inline-buttons",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "buttons": [
+          {
+              "type": "postback",
+              "label": "{{tx.faq.yes}}",
+              "value": "/yes",
+              "answer": "",
+              "alert": false,
+              "style": ""
+          },
+          {
+              "type": "postback",
+              "label": "{{tx.faq.no}}",
+              "value": "/no",
+              "answer": "",
+              "alert": false,
+              "style": ""
+          }
+      ],
+      "message": "{{tx.faq.wasUseful}}",
+      "x": 400,
+      "y": 1140,
+      "wires": [
+          [
+              "493371d3.72b33",
+              "2f3cce76.97a2b2",
+              "1d120fd.f4f50f"
+          ]
+      ]
+  },
+  {
+      "id": "493371d3.72b33",
+      "type": "chatbot-telegram-send",
+      "z": "ac239391.e21b4",
+      "bot": "b82d15f0.998c78",
+      "botProduction": "",
+      "track": true,
+      "passThrough": false,
+      "outputs": 1,
+      "x": 610,
+      "y": 1140,
+      "wires": [
+          [
+              "2014f015.26d2"
+          ]
+      ]
+  },
+  {
+      "id": "2014f015.26d2",
+      "type": "chatbot-rules",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "rules": [
+          {
+              "type": "command",
+              "command": "/yes"
+          },
+          {
+              "type": "command",
+              "command": "/no"
+          },
+          {
+              "type": "catchAll"
+          }
+      ],
+      "outputs": 3,
+      "x": 810,
+      "y": 1140,
+      "wires": [
+          [
+              "74043c3a.d30e84"
+          ],
+          [
+              "dbba60f6.330a5"
+          ],
+          [
+              "6889073b.0b9cb8"
+          ]
+      ]
+  },
+  {
+      "id": "74043c3a.d30e84",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Glad I helped",
+      "message": [
+          {
+              "message": "{{tx.faq.thanksBye1}}"
+          },
+          {
+              "message": "{{tx.faq.thanksBye2}}"
+          },
+          {
+              "message": "{{tx.faq.thanksBye3}}"
+          }
+      ],
+      "language": "",
+      "x": 1040,
+      "y": 1100,
+      "wires": [
+          [
+              "1b7dc50b.1c48bb"
+          ]
+      ]
+  },
+  {
+      "id": "ea62557c.fb0428",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 1375,
+      "y": 1100,
+      "wires": []
+  },
+  {
+      "id": "1b7dc50b.1c48bb",
+      "type": "chatbot-context",
+      "z": "ac239391.e21b4",
+      "command": "delete",
+      "fieldValue": "",
+      "fieldType": "str",
+      "fieldName": "topic",
+      "x": 1240,
+      "y": 1100,
+      "wires": [
+          [
+              "ea62557c.fb0428"
+          ]
+      ]
+  },
+  {
+      "id": "2031ffa3.3bfcb",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "All articles",
+      "info": "",
+      "x": 320,
+      "y": 1320,
+      "wires": []
+  },
+  {
+      "id": "808cad78.00883",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "All articles",
+      "links": [
+          "dbba60f6.330a5",
+          "5365b74c.6a1cf8"
+      ],
+      "x": 280,
+      "y": 1380,
+      "wires": [
+          [
+              "208c025a.e24a7e"
+          ]
+      ]
+  },
+  {
+      "id": "dbba60f6.330a5",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "808cad78.00883"
+      ],
+      "x": 940,
+      "y": 1180,
+      "wires": []
+  },
+  {
+      "id": "d6370f1a.2da75",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 1535,
+      "y": 200,
+      "wires": []
+  },
+  {
+      "id": "208c025a.e24a7e",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "Search with last",
+      "func": "const threshold = global.get('faq_threshold');\nlet articlesToSuggest = global.get('faq_articlesToSuggest');\nconst minisearchFaq = global.get('minisearchFaq');\nconst chat = msg.chat();\n\n//return {...msg, ids: [ 14, 16, 17, 7 ]};\nPromise.resolve(chat.get('faq_lastSeach'))\n  .then(lastSearch => {\n\n    if (lastSearch == null || lastSearch === '') {\n      node.send([null, msg]);\n      return;\n    }\n    // check if valid or default to 5\n    articlesToSuggest = !isNaN(articlesToSuggest) ? articlesToSuggest : 5; \n    // search and truncate\n    const result = minisearchFaq.search(lastSearch);\n    const ids = result.map(item => item.id).slice(0, articlesToSuggest);\n\n    node.send([{ ...msg, query: ids }, null]);      \n  })\n  .catch(e => node.error)\n \n\n\n",
+      "outputs": 2,
+      "noerr": 0,
+      "x": 420,
+      "y": 1380,
+      "wires": [
+          [
+              "89aaf4de.9a0258"
+          ],
+          [
+              "4153727c.51376c"
+          ]
+      ]
+  },
+  {
+      "id": "5365b74c.6a1cf8",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "808cad78.00883"
+      ],
+      "x": 475,
+      "y": 60,
+      "wires": []
+  },
+  {
+      "id": "46036c6c.8fbdc4",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "e9e237c0.954148"
+      ],
+      "x": 1135,
+      "y": 400,
+      "wires": []
+  },
+  {
+      "id": "a0b83d6c.1d219",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "No topic 'faq.needHelp', not answer by default, no detected intent. Pass thru",
+      "info": "",
+      "x": 1390,
+      "y": 360,
+      "wires": []
+  },
+  {
+      "id": "89aaf4de.9a0258",
+      "type": "mc-content",
+      "z": "ac239391.e21b4",
+      "language": "",
+      "failbackLanguage": "en",
+      "chain": false,
+      "x": 610,
+      "y": 1380,
+      "wires": [
+          [
+              "1991be61.ed3532"
+          ],
+          []
+      ]
+  },
+  {
+      "id": "1991be61.ed3532",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "Translate to buttons",
+      "func": "console.log('Trovati con array', msg.payload);\n\nif (msg.payload == null || msg.payload.length === 0 || msg.payload.length == null) {\n  return [null, msg];    \n}\n\n// translate into buttons\nconst buttons = [];\nmsg.payload.forEach(item => {\n  buttons.push({\n    type: 'postback',\n    value: `/faq_open ${item.id}`,\n    label: item.title\n  });\n  buttons.push({\n    type: 'newline'\n  });\n});\n\nreturn [{ ...msg, payload: buttons }, null];",
+      "outputs": 2,
+      "noerr": 0,
+      "x": 820,
+      "y": 1380,
+      "wires": [
+          [
+              "f0c12a39.623358"
+          ],
+          [
+              "156bd0c.aeda62f"
+          ]
+      ]
+  },
+  {
+      "id": "5675a98d.46e0a8",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Show an article",
+      "info": "",
+      "x": 340,
+      "y": 1520,
+      "wires": []
+  },
+  {
+      "id": "ba1d8fec.39623",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 1135,
+      "y": 1360,
+      "wires": []
+  },
+  {
+      "id": "f0c12a39.623358",
+      "type": "chatbot-inline-buttons",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "buttons": [],
+      "message": "{{tx.faq.selectOneOfThese}}",
+      "x": 1020,
+      "y": 1360,
+      "wires": [
+          [
+              "ba1d8fec.39623"
+          ]
+      ]
+  },
+  {
+      "id": "61ae4057.83d36",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "Show article",
+      "links": [
+          "b4c4e04b.a2c03"
+      ],
+      "x": 280,
+      "y": 1580,
+      "wires": [
+          [
+              "dfd820a0.d96d"
+          ]
+      ]
+  },
+  {
+      "id": "b4c4e04b.a2c03",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "61ae4057.83d36"
+      ],
+      "x": 475,
+      "y": 100,
+      "wires": []
+  },
+  {
+      "id": "17475a9.3c09da5",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "/faq_open",
+      "info": "",
+      "x": 560,
+      "y": 100,
+      "wires": []
+  },
+  {
+      "id": "cbf4f2fc.bc869",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "/faq_all",
+      "info": "",
+      "x": 550,
+      "y": 60,
+      "wires": []
+  },
+  {
+      "id": "4470371e.9d3a38",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Do the search",
+      "info": "",
+      "x": 1190,
+      "y": 280,
+      "wires": []
+  },
+  {
+      "id": "dfd820a0.d96d",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "Extract Id",
+      "func": "let id;\nconsole.log('msg.payload', msg.payload)\nif (msg.payload != null && msg.payload.arguments != null && msg.payload.arguments.length !== 0) {\n  id = parseInt(msg.payload.arguments[0], 10);    \n}\nconsole.log('idididid', id)\nif (!isNaN(id)) {\n  node.send([{ ...msg, payload: { query: id } }, null]);    \n} else {\n  node.send([null, msg]);\n}\n",
+      "outputs": 2,
+      "noerr": 0,
+      "x": 410,
+      "y": 1580,
+      "wires": [
+          [
+              "ba31be43.79967"
+          ],
+          [
+              "c5dd95b3.934b18"
+          ]
+      ]
+  },
+  {
+      "id": "ba31be43.79967",
+      "type": "mc-content",
+      "z": "ac239391.e21b4",
+      "language": "",
+      "failbackLanguage": "en",
+      "chain": false,
+      "x": 590,
+      "y": 1580,
+      "wires": [
+          [
+              "e0b3d30a.d44a9"
+          ],
+          []
+      ]
+  },
+  {
+      "id": "e0b3d30a.d44a9",
+      "type": "template",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "field": "payload",
+      "fieldType": "msg",
+      "format": "handlebars",
+      "syntax": "mustache",
+      "template": "{{#payload}}\n*{{{title}}}*\n{{#category}}\nCategory: _{{{name}}}_\n{{/category}}\n{{{body}}}\n{{/payload}}",
+      "output": "str",
+      "x": 780,
+      "y": 1580,
+      "wires": [
+          [
+              "f47dad5e.0b5d2"
+          ]
+      ]
+  },
+  {
+      "id": "f47dad5e.0b5d2",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Show article",
+      "message": [],
+      "language": "",
+      "x": 970,
+      "y": 1580,
+      "wires": [
+          [
+              "456790a4.0e61c"
+          ]
+      ]
+  },
+  {
+      "id": "456790a4.0e61c",
+      "type": "chatbot-params",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "params": [
+          {
+              "platform": "telegram",
+              "name": "parseMode",
+              "value": "Markdown"
+          },
+          {
+              "platform": "all",
+              "name": "messageFlag",
+              "value": "answer"
+          }
+      ],
+      "outputs": 1,
+      "x": 1140,
+      "y": 1580,
+      "wires": [
+          [
+              "b300c604.8245f8"
+          ]
+      ]
+  },
+  {
+      "id": "b300c604.8245f8",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 1255,
+      "y": 1580,
+      "wires": []
+  },
+  {
+      "id": "a857dcbc.b98a2",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Something went wrong",
+      "info": "",
+      "x": 360,
+      "y": 1720,
+      "wires": []
+  },
+  {
+      "id": "447c70bf.12529",
+      "type": "link in",
+      "z": "ac239391.e21b4",
+      "name": "Something went wrong",
+      "links": [
+          "c5dd95b3.934b18",
+          "4153727c.51376c"
+      ],
+      "x": 280,
+      "y": 1780,
+      "wires": [
+          [
+              "7dec8324.10c5bc"
+          ]
+      ]
+  },
+  {
+      "id": "7dec8324.10c5bc",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Went wrong",
+      "message": [
+          {
+              "message": "{{tx.faq.somethingWentWrong}}"
+          }
+      ],
+      "language": "",
+      "x": 430,
+      "y": 1780,
+      "wires": [
+          [
+              "a5369339.a7c25"
+          ]
+      ]
+  },
+  {
+      "id": "a5369339.a7c25",
+      "type": "chatbot-params",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "params": [
+          {
+              "platform": "all",
+              "name": "messageFlag",
+              "value": "error"
+          }
+      ],
+      "outputs": 1,
+      "x": 620,
+      "y": 1780,
+      "wires": [
+          [
+              "b9479cc3.82799"
+          ]
+      ]
+  },
+  {
+      "id": "b9479cc3.82799",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 740,
+      "y": 1780,
+      "wires": []
+  },
+  {
+      "id": "c5dd95b3.934b18",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "447c70bf.12529"
+      ],
+      "x": 535,
+      "y": 1620,
+      "wires": []
+  },
+  {
+      "id": "4153727c.51376c",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "447c70bf.12529"
+      ],
+      "x": 555,
+      "y": 1420,
+      "wires": []
+  },
+  {
+      "id": "156bd0c.aeda62f",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "No more articles",
+      "message": [
+          {
+              "message": "{{tx.faq.noMoreArticles}}"
+          }
+      ],
+      "language": "",
+      "x": 1040,
+      "y": 1400,
+      "wires": [
+          [
+              "881bb990.b49208"
+          ]
+      ]
+  },
+  {
+      "id": "881bb990.b49208",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "2cc1f8b8.a7e298"
+      ],
+      "x": 1160,
+      "y": 1400,
+      "wires": []
+  },
+  {
+      "id": "c1f4fe91.b1881",
+      "type": "chatbot-pop-message",
+      "z": "ac239391.e21b4",
+      "x": 1200,
+      "y": 320,
+      "wires": [
+          [
+              "85413dc4.b682d"
+          ]
+      ]
+  },
+  {
+      "id": "a5aae5d8.e56148",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "e9e237c0.954148"
+      ],
+      "x": 795,
+      "y": 1000,
+      "wires": []
+  },
+  {
+      "id": "26f0de86.36feb2",
+      "type": "chatbot-message",
+      "z": "ac239391.e21b4",
+      "name": "Glad I helped",
+      "message": [
+          {
+              "message": "{{tx.faq.thanksBye1}}"
+          },
+          {
+              "message": "{{tx.faq.thanksBye2}}"
+          },
+          {
+              "message": "{{tx.faq.thanksBye3}}"
+          }
+      ],
+      "language": "",
+      "x": 1400,
+      "y": 200,
+      "wires": [
+          [
+              "d6370f1a.2da75"
+          ]
+      ]
+  },
+  {
+      "id": "d738aea8.ee6ff",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Pass thru",
+      "info": "",
+      "x": 520,
+      "y": 260,
+      "wires": []
+  },
+  {
+      "id": "228bc1a7.6506ee",
+      "type": "comment",
+      "z": "ac239391.e21b4",
+      "name": "Is message, process",
+      "info": "",
+      "x": 550,
+      "y": 180,
+      "wires": []
+  },
+  {
+      "id": "6889073b.0b9cb8",
+      "type": "link out",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "links": [
+          "b0a794d6.03aec8"
+      ],
+      "x": 960,
+      "y": 1140,
+      "wires": []
+  },
+  {
+      "id": "911cf965.db4f78",
+      "type": "mc-graphql",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "query": "  query {  \n    contents(namespace: \"faq\", limit: 1000) {\n      id,\n      slug,\n      title,\n      body,\n      category {\n        id,\n        name\n      }\n    }\n  }",
+      "noerr": 0,
+      "x": 570,
+      "y": 540,
+      "wires": [
+          [
+              "b1560e12.71661"
+          ],
+          []
+      ]
+  },
+  {
+      "id": "a36565f8.a465a8",
+      "type": "chatbot-slack-send",
+      "z": "ac239391.e21b4",
+      "bot": "42daa064.a4d61",
+      "botProduction": "",
+      "track": true,
+      "passThrough": false,
+      "outputs": 1,
+      "x": 1590,
+      "y": 280,
+      "wires": [
+          [
+              "63d6f7a8.3d7f78"
+          ]
+      ]
+  },
+  {
+      "id": "b6bace8c.2a45",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "",
+      "func": "console.log('ASK IF USEFUL')\nreturn msg;",
+      "outputs": 1,
+      "noerr": 0,
+      "x": 460,
+      "y": 1100,
+      "wires": [
+          []
+      ]
+  },
+  {
+      "id": "2f3cce76.97a2b2",
+      "type": "chatbot-slack-send",
+      "z": "ac239391.e21b4",
+      "bot": "42daa064.a4d61",
+      "botProduction": "",
+      "track": true,
+      "passThrough": false,
+      "outputs": 1,
+      "x": 590,
+      "y": 1180,
+      "wires": [
+          [
+              "2014f015.26d2"
+          ]
+      ]
+  },
+  {
+      "id": "1d120fd.f4f50f",
+      "type": "mc-simulator-sender",
+      "z": "ac239391.e21b4",
+      "track": true,
+      "passThrough": false,
+      "x": 600,
+      "y": 1220,
+      "wires": [
+          [
+              "2014f015.26d2"
+          ]
+      ]
+  },
+  {
+      "id": "bedc94d0.9e75a8",
+      "type": "mc-simulator-sender",
+      "z": "ac239391.e21b4",
+      "track": true,
+      "passThrough": false,
+      "x": 1600,
+      "y": 320,
+      "wires": [
+          [
+              "63d6f7a8.3d7f78"
+          ]
+      ]
+  },
+  {
+      "id": "54cfd9d1.ee2a28",
+      "type": "function",
+      "z": "ac239391.e21b4",
+      "name": "Clear queue",
+      "func": "const cleared = { ...msg, payload: null };\nreturn cleared;",
+      "outputs": 1,
+      "noerr": 0,
+      "x": 1450,
+      "y": 940,
+      "wires": [
+          [
+              "7a77bbc3.aa2994"
+          ]
+      ]
+  },
+  {
+      "id": "b82d15f0.998c78",
+      "type": "chatbot-telegram-node",
+      "z": "",
+      "botname": "Telegram Webhook",
+      "usernames": "",
+      "providerToken": "",
+      "polling": "1000",
+      "store": "90a88033.5bb9",
+      "log": "",
+      "debug": true,
+      "webHook": "",
+      "connectMode": "polling"
+  },
+  {
+      "id": "42daa064.a4d61",
+      "type": "chatbot-slack-node",
+      "z": "",
+      "botname": "Slack Local",
+      "usernames": "",
+      "username": "",
+      "iconEmoji": "",
+      "store": "f5d4568d.cde378",
+      "log": "",
+      "debug": true
+  },
+  {
+      "id": "90a88033.5bb9",
+      "type": "chatbot-context-store",
+      "z": "",
+      "name": "Local SQLite",
+      "contextStorage": "sqlite",
+      "contextParams": "{\"dbPath\":\"/Users/guibel/web/node-red-contrib-chatbot-mission-control/mission-control.sqlite\"}"
+  },
+  {
+      "id": "f5d4568d.cde378",
+      "type": "chatbot-context-store",
+      "z": "",
+      "name": "File",
+      "contextStorage": "plain-file",
+      "contextParams": "{\"path\":\"/Users/guibel/web/contexts\"}"
+  }
+]
