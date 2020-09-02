@@ -108,7 +108,8 @@ plug('pages', Contents, {
   permission: 'faq.edit',
   breadcrumbs: ['Knowledge Base', 'Articles'],
   labels: {
-    saveContent: 'Save article'
+    saveContent: 'Save article',
+    createContent: 'Create article'
   }
 });
 // permissions
