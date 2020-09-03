@@ -19,9 +19,6 @@ const ConfigurationPage = () => {
     namespace: 'faq',
     onCompleted: () => Notification.success({ title: 'Configuration', description: 'Configuration saved successful' })
   });
-  // TODO fix loading
-  // TODO error component
-  // TODO move to basic configuration layout the flexigird
 
   return (
     <PageContainer className="page-configuration">

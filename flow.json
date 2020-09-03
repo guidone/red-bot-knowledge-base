@@ -3,7 +3,7 @@
       "id": "ac239391.e21b4",
       "type": "subflow",
       "name": "Knowledge Base",
-      "info": "Show to the user some technical articles taken from a [knowledge base](/mc/knowledge-base). The search is keyword based.\n\nIt can work in `answer mode`, that means that every input from the user is searched against the articles list (this is useful for bots that don't handle different requests)\n\n\n**Version:** _1.0.1_\n\n**URL:** [GitHub](https://github.com/guidone/red-bot-knowledge-base) ",
+      "info": "Show to the user some technical articles taken from a [knowledge base](/mc/knowledge-base). The search is keyword based.\n\nIt can work in `answer mode`, that means that every input from the user is searched against the articles list (this is useful for bots that don't handle different requests)\n\n\n**Version:** _1.0.2_\n\n**URL:** [GitHub](https://github.com/guidone/red-bot-knowledge-base) ",
       "category": "RedBot Flows",
       "in": [
           {

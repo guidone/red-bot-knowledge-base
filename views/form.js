@@ -5,68 +5,68 @@ import { Dictionary, Confidence, InputInteger } from '../../../src/components';
 
 const dictionarySchema = [
   {
-    name: 'faq.bestMatch',
+    name: 'knowledge-base.bestMatch',
     description: 'Text shown before the list of opening hours'
   },
   {
-    name: 'faq.sorryNotFound1',
+    name: 'knowledge-base.sorryNotFound1',
     description: 'Answer when no support articles were found (first version)'
   },
   {
-    name: 'faq.sorryNotFound2',
+    name: 'knowledge-base.sorryNotFound2',
     description: 'Answer when no support articles were found (second version)'
   },
   {
-    name: 'faq.sorryNotFound3',
+    name: 'knowledge-base.sorryNotFound3',
     description: 'Answer when no support articles were found (third version)'
   },
   {
-    name: 'faq.askSomething1',
+    name: 'knowledge-base.askSomething1',
     description: 'What the chatbot answer when the user requests help (first version)'
   },
   {
-    name: 'faq.askSomething2',
+    name: 'knowledge-base.askSomething2',
     description: 'What the chatbot answer when the user requests help (second version)'
   },
   {
-    name: 'faq.askSomething3',
+    name: 'knowledge-base.askSomething3',
     description: 'What the chatbot answer when the user requests help (third version)'
   },
   {
-    name: 'faq.no'
+    name: 'knowledge-base.no'
   },
   {
-    name: 'faq.yes'
+    name: 'knowledge-base.yes'
   },
   {
-    name: 'faq.ok'
+    name: 'knowledge-base.ok'
   },
   {
-    name: 'faq.wasUseful',
+    name: 'knowledge-base.wasUseful',
     description: 'Asked if an article is useful after a search'
   },
   {
-    name: 'faq.thanksBye1',
+    name: 'knowledge-base.thanksBye1',
     description: 'Answer when the user is satisfied with the found article (first version)'
   },
   {
-    name: 'faq.thanksBye2',
+    name: 'knowledge-base.thanksBye2',
     description: 'Answer when the user is satisfied with the found article (second version)'
   },
   {
-    name: 'faq.thanksBye3',
+    name: 'knowledge-base.thanksBye3',
     description: 'Answer when the user is satisfied with the found article (third version)'
   },
   {
-    name: 'faq.selectOneOfThese',
+    name: 'knowledge-base.selectOneOfThese',
     description: 'Shown when the user is asked to select on of the related articles of a search'
   },
   {
-    name: 'faq.somethingWentWrong',
+    name: 'knowledge-base.somethingWentWrong',
     description: 'Shown when an unrecoverable error occurs'
   },
   {
-    name: 'faq.noMoreArticles',
+    name: 'knowledge-base.noMoreArticles',
     description: `Shown when user ask to more results but there aren't`
   }
 ];

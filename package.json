@@ -1,6 +1,6 @@
 {
   "name": "red-bot-knowledge-base",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Suggest to the user some technical articles taken from a content library",
   "main": "index.js",
   "author": {
